@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+
+env:
+  IMAGE: ghcr.io/gabriel-valin/backend-go-for-cluster-config    # minúsculas! GHCR exige
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write           # para publicar no GHCR via GITHUB_TOKEN
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login no GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build e push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ env.IMAGE }}:${{ github.sha }}
+          build-args: |
+            VERSION=${{ github.sha }}
+
+  update-manifest:
+    needs: build-and-push        # só roda se o build passou
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do cluster-config
+        uses: actions/checkout@v4
+        with:
+          repository: Gabriel-Valin/cluster-config
+          token: ${{ secrets.CONFIG_REPO_TOKEN }}
+
+      - name: Atualiza a tag da imagem
+        run: |
+          FILE=apps/backend-go-for-cluster-config/deployment.yaml
+          # substitui a linha da imagem pela nova tag (SHA)
+          sed -i "s|image: ghcr.io/gabriel-valin/backend-go-for-cluster-config:.*|image: ghcr.io/gabriel-valin/backend-go-for-cluster-config:${{ github.sha }}|" "$FILE"
+
+      - name: Commit e push
+        run: |
+          git config user.name "ci-bot"
+          git config user.email "ci-bot@users.noreply.github.com"
+          git add apps/backend-go-for-cluster-config/deployment.yaml
+          git commit -m "deploy: backend-go-for-cluster-config ${{ github.sha }}" || echo "sem mudanças"
+          git push

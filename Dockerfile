@@ -1,9 +1,10 @@
 # --- estágio de build ---
-FROM golang:1.23-alpine AS build
+FROM golang:1.26-alpine AS build
 WORKDIR /src
 
 # cache de dependências: copia go.mod primeiro
-COPY go.mod ./
+COPY go.mod* ./
+COPY go.sum* ./
 RUN go mod download
 
 COPY . .

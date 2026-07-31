@@ -33,7 +33,7 @@ jobs:
             VERSION=${{ github.sha }}
 
   update-manifest:
-    needs: build-and-push        # só roda se o build passou
+    needs: build-and-push
     runs-on: ubuntu-latest
     steps:
       - name: Checkout do cluster-config
@@ -42,16 +42,27 @@ jobs:
           repository: Gabriel-Valin/cluster-config
           token: ${{ secrets.CONFIG_REPO_TOKEN }}
 
-      - name: Atualiza a tag da imagem
+      - name: Atualiza a tag da imagem (API + Worker)
         run: |
-          FILE=apps/orders/api-deployment.yml
-          # substitui a linha da imagem pela nova tag (SHA)
-          sed -i "s|image: ghcr.io/gabriel-valin/backend-go-for-cluster-config:.*|image: ghcr.io/gabriel-valin/backend-go-for-cluster-config:${{ github.sha }}|" "$FILE"
+          for FILE in apps/orders/api-deployment.yml apps/orders/worker-deployment.yml; do
+            sed -i "s|image: ghcr.io/gabriel-valin/backend-go-for-cluster-config:.*|image: ghcr.io/gabriel-valin/backend-go-for-cluster-config:${{ github.sha }}|" "$FILE"
+          done
 
       - name: Commit e push
         run: |
           git config user.name "ci-bot"
           git config user.email "ci-bot@users.noreply.github.com"
-          git add apps/orders/deployment.yml
-          git commit -m "deploy: backend-go-for-cluster-config ${{ github.sha }}" || echo "sem mudanças"
+
+          echo "=== diff após o sed ==="
+          git diff --stat            # mostra se algo mudou de fato
+
+          git add apps/orders/api-deployment.yml apps/orders/worker-deployment.yml
+
+          if git diff --cached --quiet; then
+            echo "NADA para commitar — o sed provavelmente não casou a linha image:"
+            grep "image:" apps/orders/api-deployment.yml apps/orders/worker-deployment.yml
+            exit 1                   # falha o job para você VER o problema
+          fi
+
+          git commit -m "deploy: backend-go-for-cluster-config ${{ github.sha }}"
           git push

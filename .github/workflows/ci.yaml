@@ -44,7 +44,7 @@ jobs:
 
       - name: Atualiza a tag da imagem
         run: |
-          FILE=apps/backend-for-cluster/deployment.yml
+          FILE=apps/orders/api-deployment.yml
           # substitui a linha da imagem pela nova tag (SHA)
           sed -i "s|image: ghcr.io/gabriel-valin/backend-go-for-cluster-config:.*|image: ghcr.io/gabriel-valin/backend-go-for-cluster-config:${{ github.sha }}|" "$FILE"
 
@@ -52,6 +52,6 @@ jobs:
         run: |
           git config user.name "ci-bot"
           git config user.email "ci-bot@users.noreply.github.com"
-          git add apps/backend-for-cluster/deployment.yml
+          git add apps/orders/deployment.yml
           git commit -m "deploy: backend-go-for-cluster-config ${{ github.sha }}" || echo "sem mudanças"
           git push
